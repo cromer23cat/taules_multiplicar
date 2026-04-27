@@ -1,1 +1,0 @@
-# taules_multiplicar
