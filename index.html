@@ -1,4 +1,3 @@
-html
 <!DOCTYPE html>
 <html lang="ca">
 <head>
@@ -354,4 +353,159 @@ html
                 const b = document.createElement('div');
                 const size = Math.random() * 40 + 80;
                 b.className = "bubble flex items-center justify-center rounded-full shadow-lg border-4 border-white text-white font-bold text-2xl";
-                b.st
+                b.style.width = size + 'px';
+                b.style.height = size + 'px';
+                b.style.left = Math.random() * 80 + 5 + '%';
+                b.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
+                b.style.animationDuration = (Math.random() * 3 + 5) + 's';
+                b.innerText = val;
+                
+                b.onclick = () => {
+                    if (val === gameState.currentAnswer) {
+                        updateScore(20);
+                        b.style.transform = "scale(1.5)";
+                        b.style.opacity = "0";
+                        playSound('correct');
+                        setTimeout(() => b.remove(), 200);
+                        newBubbleTarget();
+                    } else {
+                        updateScore(-5);
+                        playSound('error');
+                    }
+                };
+                b.onanimationend = () => b.remove();
+                document.getElementById('bubbles-container').appendChild(b);
+            }
+            gameState.bubblesInterval = setInterval(spawnBubble, 1400);
+            newBubbleTarget();
+        }
+
+        function newBubbleTarget() {
+            const op = getRandomOperation();
+            gameState.currentAnswer = op.res;
+            document.getElementById('bubble-target').innerText = `${op.n1} × ${op.n2}`;
+            gameState.bubblesSpawnedSinceLastCorrect = 0;
+        }
+
+        function setupPuzzle() {
+            const slots = document.getElementById('puzzle-slots');
+            const pieces = document.getElementById('puzzle-pieces');
+            slots.innerHTML = '';
+            pieces.innerHTML = '';
+            gameState.puzzleSolved = 0;
+
+            const puzzleItems = [];
+            const usedAnswers = new Set();
+            while(puzzleItems.length < 4) {
+                const op = getRandomOperation();
+                if(!usedAnswers.has(op.res)) {
+                    usedAnswers.add(op.res);
+                    puzzleItems.push({ q: `${op.n1} × ${op.n2}`, a: op.res });
+                }
+            }
+
+            puzzleItems.forEach(item => {
+                const slot = document.createElement('div');
+                slot.className = "bg-gray-50 border-4 border-dashed border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center drop-zone";
+                slot.innerHTML = `<span class="text-xl font-bold text-gray-400 mb-2">${item.q} = ?</span>
+                                  <div class="target-area w-full h-12 flex items-center justify-center" data-answer="${item.a}"></div>`;
+                
+                slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('hover'); };
+                slot.ondragleave = () => slot.classList.remove('hover');
+                slot.ondrop = (e) => {
+                    e.preventDefault();
+                    slot.classList.remove('hover');
+                    const val = e.dataTransfer.getData("text");
+                    const target = slot.querySelector('.target-area');
+                    if (val == item.a && target.innerHTML === '') {
+                        const piece = document.getElementById(`piece-${val}`);
+                        target.appendChild(piece);
+                        piece.setAttribute('draggable', false);
+                        piece.classList.add('bg-green-500', 'text-white');
+                        piece.classList.remove('bg-white', 'text-orange-600');
+                        updateScore(40);
+                        playSound('correct');
+                        gameState.puzzleSolved++;
+                        if(gameState.puzzleSolved === 4) setTimeout(setupPuzzle, 1000);
+                    } else if (val != item.a) {
+                        playSound('error');
+                        updateScore(-5);
+                    }
+                };
+                slots.appendChild(slot);
+            });
+
+            [...puzzleItems].sort(() => Math.random() - 0.5).forEach(item => {
+                const p = document.createElement('div');
+                p.id = `piece-${item.a}`;
+                p.className = "bg-white border-2 border-orange-400 text-orange-600 font-bold text-2xl w-16 h-16 rounded-xl flex items-center justify-center cursor-grab shadow-sm active:cursor-grabbing";
+                p.innerText = item.a;
+                p.setAttribute('draggable', true);
+                p.ondragstart = (e) => e.dataTransfer.setData("text", item.a);
+                pieces.appendChild(p);
+            });
+        }
+
+        function setupMemory() {
+            const grid = document.getElementById('memory-grid');
+            grid.innerHTML = '';
+            let items = [];
+            const usedIds = new Set();
+            while(usedIds.size < 6) {
+                const op = getRandomOperation();
+                const id = `${op.n1}x${op.n2}`;
+                if(!usedIds.has(id)) {
+                    usedIds.add(id);
+                    items.push({id, t:'q', c:`${op.n1}×${op.n2}`}, {id, t:'a', c:op.res});
+                }
+            }
+            items.sort(() => Math.random()-0.5).forEach(item => {
+                const card = document.createElement('div');
+                card.className = "card-flip h-24 sm:h-32 cursor-pointer";
+                card.innerHTML = `
+                    <div class="card-inner w-full h-full shadow-md rounded-xl" data-id="${item.id}">
+                        <div class="card-front bg-indigo-500 rounded-xl flex items-center justify-center text-white text-3xl font-bold shadow-inner">?</div>
+                        <div class="card-back bg-white border-2 border-indigo-200 rounded-xl flex items-center justify-center font-bold text-gray-700 text-lg sm:text-2xl">${item.c}</div>
+                    </div>`;
+                card.onclick = () => flipMemory(card.querySelector('.card-inner'));
+                grid.appendChild(card);
+            });
+        }
+
+        function flipMemory(c) {
+            if(gameState.memoryFlipped.length === 2 || c.classList.contains('card-flipped') || c.classList.contains('matched')) return;
+            c.classList.add('card-flipped');
+            gameState.memoryFlipped.push(c);
+            if(gameState.memoryFlipped.length === 2) {
+                const [c1, c2] = gameState.memoryFlipped;
+                if(c1.dataset.id === c2.dataset.id) {
+                    c1.classList.add('matched'); c2.classList.add('matched');
+                    updateScore(50);
+                    gameState.memoryFlipped = [];
+                    playSound('correct');
+                    if(document.querySelectorAll('.matched').length === 12) setupMemory(); 
+                } else {
+                    playSound('error');
+                    setTimeout(() => { c1.classList.remove('card-flipped'); c2.classList.remove('card-flipped'); gameState.memoryFlipped = []; }, 1000);
+                }
+            }
+        }
+
+        function showFeedback(correct) {
+            const f = document.getElementById('feedback');
+            f.innerText = correct ? "Molt bé! 🌟" : "Torna-ho a provar! ❌";
+            f.className = `h-8 mt-4 font-bold text-lg opacity-100 ${correct ? 'text-green-500' : 'text-red-500'}`;
+            playSound(correct ? 'correct' : 'error');
+            setTimeout(() => f.className = "h-8 mt-4 font-bold text-lg opacity-0", 600);
+        }
+
+        function playSound(t) { const a = document.getElementById(`sound-${t}`); a.currentTime = 0; a.play().catch(()=>{}); }
+        function endGame() { 
+            clearInterval(gameState.interval); 
+            clearInterval(gameState.bubblesInterval);
+            document.getElementById('game-over').classList.remove('hidden'); 
+            document.getElementById('final-score').innerText = gameState.score; 
+        }
+    </script>
+</body>
+</html>
