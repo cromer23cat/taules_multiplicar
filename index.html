@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aventura Matemàtica - Practica les Taules</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -13,498 +13,185 @@
             font-family: 'Fredoka', sans-serif;
             background: #f0f9ff;
             touch-action: manipulation;
-            overflow-x: hidden;
+            overflow: hidden; /* Evita el scroll durant el joc */
+            height: 100vh;
         }
 
-        .card-flip { perspective: 1000px; }
-        .card-inner { transition: transform 0.6s; transform-style: preserve-3d; }
-        .card-flipped { transform: rotateY(180deg); }
-        .card-front, .card-back { backface-visibility: hidden; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        .card-back { transform: rotateY(180deg); }
-
-        .school-logo { max-height: 70px; width: auto; object-fit: contain; }
         .header-bg { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); }
 
         @keyframes floatUp {
-            from { transform: translateY(100vh); opacity: 1; }
-            to { transform: translateY(-20vh); opacity: 0.8; }
+            from { transform: translateY(110vh); opacity: 1; }
+            to { transform: translateY(-20vh); opacity: 0; }
         }
+        
         .bubble {
             position: absolute;
-            animation: floatUp linear forwards;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(2px);
+            border: 3px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #4f46e5;
+            animation: floatUp 7s linear forwards;
             cursor: pointer;
-            transition: transform 0.2s;
+            z-index: 10;
+            transition: background 0.2s, transform 0.2s;
+            font-size: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
-        .bubble:hover { transform: scale(1.1); }
 
-        .drop-zone { min-height: 80px; transition: all 0.3s; }
-        .drop-zone.hover { background-color: #e0e7ff; border-color: #4f46e5; }
+        /* Efecte de pols per quan explota la bombolla */
+        .bubble-pop {
+            transform: scale(1.5);
+            opacity: 0;
+            transition: all 0.3s ease-out;
+        }
+
+        .setup-btn {
+            transition: all 0.2s;
+            border-bottom: 4px solid #c7d2fe;
+        }
+        .setup-btn:active {
+            transform: translateY(2px);
+            border-bottom-width: 0;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="flex flex-col">
 
-    <!-- Capçalera -->
-    <header class="header-bg text-white p-3 md:p-4 shadow-lg flex justify-between items-center z-50">
-        <div class="flex items-center gap-4">
-            <div class="bg-white p-2 rounded-xl flex items-center justify-center shadow-md">
-                <img src="https://raw.githubusercontent.com/AI-Code-Assets/school-math/main/sant-salvador-logo.png" 
-                     id="main-logo"
-                     alt="Logo Escola Sant Salvador" 
-                     class="school-logo"
-                     onerror="this.onerror=null; this.src='https://raw.githubusercontent.com/google/material-design-icons/master/png/social/school/materialicons/48dp/2x/baseline_school_black_48dp.png';">
+    <header class="header-bg p-4 text-white shadow-lg flex justify-between items-center relative z-50">
+        <div class="flex items-center gap-3">
+            <div class="bg-white p-2 rounded-xl text-indigo-600 shadow-inner">
+                <i class="fas fa-rocket text-xl"></i>
             </div>
-            <div class="flex flex-col">
-                <h1 class="text-xl md:text-2xl font-bold leading-tight">Aventura Matemàtica</h1>
-                <p class="text-xs md:text-sm text-indigo-100 font-medium">Escola Sant Salvador</p>
-            </div>
+            <h1 class="text-xl md:text-2xl font-bold tracking-tight">Aventura Matemàtica</h1>
         </div>
-        <div id="score-display" class="hidden bg-indigo-900/50 backdrop-blur-sm px-4 py-1 rounded-full text-lg font-semibold">
-            Punts: <span id="current-score">0</span>
+        <div id="score-container" class="bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full font-bold shadow-md flex items-center gap-2">
+            <i class="fas fa-star"></i>
+            <span>Punts: <span id="score">0</span></span>
         </div>
     </header>
 
-    <main class="flex-grow container mx-auto p-4 flex flex-col items-center justify-center relative">
+    <main class="flex-grow flex flex-col items-center justify-center p-4 relative overflow-hidden">
         
-        <!-- Menú Principal -->
-        <div id="main-menu" class="w-full max-w-5xl bg-white rounded-3xl shadow-xl p-8 text-center border-t-8 border-indigo-500 z-10">
-            <h2 class="text-3xl font-bold text-gray-800 mb-8">Tria la teva aventura!</h2>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                <button onclick="startGame('speed')" class="p-6 bg-yellow-400 hover:bg-yellow-500 rounded-2xl shadow-md transition-all transform hover:scale-105 text-white flex flex-col items-center">
-                    <i class="fas fa-bolt text-4xl mb-3"></i>
-                    <h3 class="font-bold text-xl">Contrarellotge</h3>
-                    <p class="text-xs opacity-90">Rapidesa mental</p>
-                </button>
-                <button onclick="startGame('memory')" class="p-6 bg-purple-500 hover:bg-purple-600 rounded-2xl shadow-md transition-all transform hover:scale-105 text-white flex flex-col items-center">
-                    <i class="fas fa-th-large text-4xl mb-3"></i>
-                    <h3 class="font-bold text-xl">Memòria</h3>
-                    <p class="text-xs opacity-90">Troba les parelles</p>
-                </button>
-                <button onclick="startGame('bubbles')" class="p-6 bg-blue-400 hover:bg-blue-500 rounded-2xl shadow-md transition-all transform hover:scale-105 text-white flex flex-col items-center">
-                    <i class="fas fa-circle-notch text-4xl mb-3"></i>
-                    <h3 class="font-bold text-xl">Bombolles</h3>
-                    <p class="text-xs opacity-90">Exclata el resultat</p>
-                </button>
-                <button onclick="startGame('truth')" class="p-6 bg-rose-400 hover:bg-rose-500 rounded-2xl shadow-md transition-all transform hover:scale-105 text-white flex flex-col items-center">
-                    <i class="fas fa-check-double text-4xl mb-3"></i>
-                    <h3 class="font-bold text-xl">Tot o Res</h3>
-                    <p class="text-xs opacity-90">Correcte o Fals?</p>
-                </button>
-                
-                <!-- BOTO PUZLE AMB AVÍS -->
-                <button onclick="startGame('puzzle')" class="relative p-6 bg-orange-400 hover:bg-orange-500 rounded-2xl shadow-md transition-all transform hover:scale-105 text-white flex flex-col items-center">
-                    <i class="fas fa-puzzle-piece text-4xl mb-3"></i>
-                    <h3 class="font-bold text-xl">Puzle</h3>
-                    <p class="text-xs opacity-90">Ordena els números</p>
-                    <div class="mt-2 bg-orange-600/30 px-2 py-1 rounded-lg text-[10px] flex items-center gap-1">
-                        <i class="fas fa-mouse"></i> Cal ratolí
-                    </div>
-                </button>
-
-                <button onclick="startGame('classic')" class="p-6 bg-emerald-500 hover:bg-emerald-600 rounded-2xl shadow-md transition-all transform hover:scale-105 text-white flex flex-col items-center">
-                    <i class="fas fa-graduation-cap text-4xl mb-3"></i>
-                    <h3 class="font-bold text-xl">Examen</h3>
-                    <p class="text-xs opacity-90">Pràctica clàssica</p>
-                </button>
+        <div id="setup-screen" class="bg-white p-8 rounded-3xl shadow-2xl text-center z-50 max-w-md w-full border-4 border-indigo-100">
+            <h2 class="text-3xl mb-6 text-indigo-900 font-bold">Quina taula vols practicar avui?</h2>
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <script>
+                    for(let i=1; i<=9; i++) {
+                        document.write(`
+                            <button onclick="startGame(${i})" class="setup-btn bg-indigo-50 hover:bg-indigo-500 hover:text-white text-indigo-700 font-bold py-4 rounded-2xl text-xl">
+                                ${i}
+                            </button>
+                        `);
+                    }
+                </script>
             </div>
-            
-            <div class="pt-6 border-t border-gray-100">
-                <h4 class="text-lg font-bold text-gray-600 mb-4 italic">Selecciona el teu nivell:</h4>
-                <div class="flex flex-wrap justify-center gap-4">
-                    <label class="cursor-pointer bg-green-50 px-6 py-3 rounded-2xl border-2 border-transparent has-[:checked]:border-green-600 transition-all flex flex-col items-center min-w-[140px] shadow-sm">
-                        <input type="radio" name="difficulty" value="5" checked class="hidden">
-                        <span class="font-bold text-green-800">FÀCIL</span>
-                        <span class="text-xs text-green-600">Fins al 5</span>
-                    </label>
-                    <label class="cursor-pointer bg-blue-50 px-6 py-3 rounded-2xl border-2 border-transparent has-[:checked]:border-blue-600 transition-all flex flex-col items-center min-w-[140px] shadow-sm">
-                        <input type="radio" name="difficulty" value="10" class="hidden">
-                        <span class="font-bold text-blue-800">INTERMÈDI</span>
-                        <span class="text-xs text-blue-600">Fins al 10</span>
-                    </label>
-                    <label class="cursor-pointer bg-purple-50 px-6 py-3 rounded-2xl border-2 border-transparent has-[:checked]:border-purple-600 transition-all flex flex-col items-center min-w-[140px] shadow-sm">
-                        <input type="radio" name="difficulty" value="15" class="hidden">
-                        <span class="font-bold text-purple-800">EXPERT</span>
-                        <span class="text-xs text-purple-600">Fins al 15</span>
-                    </label>
-                </div>
-            </div>
+            <p class="text-indigo-400 text-sm italic">Tria un número per començar l'aventura!</p>
         </div>
 
-        <!-- JOC: Arena Estàndard (Quiz/Truth) -->
-        <div id="game-arena" class="hidden w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 text-center relative overflow-hidden">
-            <div id="timer-bar" class="absolute top-0 left-0 h-2 bg-yellow-400 transition-all duration-1000" style="width: 100%;"></div>
-            <div class="flex justify-between items-center mb-6">
-                <button onclick="backToMenu()" class="text-gray-400 hover:text-red-500"><i class="fas fa-times-circle text-2xl"></i></button>
-                <div id="timer-text" class="text-xl font-bold text-gray-700">120s</div>
-            </div>
-            <div id="question-box" class="mb-8">
-                <div class="text-6xl font-bold text-gray-800 mb-2" id="quiz-display">? × ?</div>
-            </div>
-            <div id="answer-grid" class="grid grid-cols-2 gap-4"></div>
-            <div id="feedback" class="h-8 mt-4 font-bold opacity-0 transition-opacity">Correcte!</div>
-        </div>
-
-        <!-- JOC: Bombolles -->
-        <div id="bubbles-arena" class="hidden fixed inset-0 z-0 overflow-hidden bg-blue-50">
-            <div class="absolute top-24 left-0 w-full text-center z-10 pointer-events-none">
-                <div class="text-3xl md:text-4xl font-bold text-blue-600 bg-white/90 inline-block px-8 py-4 rounded-3xl shadow-xl border-2 border-blue-200">
-                    Cerca: <span id="bubble-target" class="text-blue-800">?</span> | <span id="bubble-timer">120s</span>
-                </div>
-            </div>
-            <div id="bubbles-container" class="relative w-full h-full"></div>
-            <button onclick="backToMenu()" class="fixed bottom-6 right-6 bg-white/95 p-4 rounded-2xl shadow-lg z-20 text-red-500 border border-red-100"><i class="fas fa-sign-out-alt text-2xl mr-2"></i> Sortir</button>
-        </div>
-
-        <!-- JOC: Puzle Drag & Drop -->
-        <div id="puzzle-arena" class="hidden w-full max-w-4xl bg-white rounded-3xl shadow-xl p-6">
-            <div class="flex justify-between items-center mb-4">
-                <button onclick="backToMenu()" class="text-gray-400 hover:text-red-500"><i class="fas fa-times-circle text-2xl"></i></button>
-                <div class="text-center">
-                    <h3 class="text-2xl font-bold text-orange-600">Puzle Matemàtic (<span id="puzzle-timer">120s</span>)</h3>
-                    <p class="text-xs text-orange-400 italic font-semibold"><i class="fas fa-mouse"></i> Arrossega les peces amb el ratolí</p>
-                </div>
-                <div class="w-10"></div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div id="puzzle-slots" class="grid grid-cols-2 gap-4"></div>
-                <div id="puzzle-pieces" class="flex flex-wrap gap-4 items-center justify-center p-6 bg-orange-50 rounded-2xl border-2 border-dashed border-orange-200"></div>
-            </div>
-        </div>
-
-        <!-- JOC: Memòria -->
-        <div id="memory-arena" class="hidden w-full max-w-4xl">
-            <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-md">
-                <button onclick="backToMenu()" class="text-purple-600 font-bold">Torna al menú</button>
-                <div class="text-xl font-bold text-purple-800">Temps: <span id="memory-timer">120s</span></div>
-            </div>
-            <div id="memory-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3"></div>
-        </div>
-
-        <!-- Game Over -->
-        <div id="game-over" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[100]">
-            <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
-                <div class="text-6xl mb-4">🏆</div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Molt bona feina!</h2>
-                <p class="text-gray-600 mb-6">Has aconseguit <span id="final-score" class="font-bold text-indigo-600 text-3xl">0</span> punts.</p>
-                <button onclick="backToMenu()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-xl hover:bg-indigo-700 transition-transform active:scale-95 shadow-lg">Jugar una altra vegada</button>
+        <div id="game-screen" class="hidden text-center z-20">
+            <div class="bg-white/80 backdrop-blur-sm p-10 rounded-3xl shadow-2xl mb-8 border-4 border-white">
+                <p class="text-indigo-400 text-lg uppercase tracking-widest font-bold mb-2">Explota la resposta!</p>
+                <div id="question" class="text-7xl md:text-8xl font-bold text-indigo-600">5 x 5</div>
             </div>
         </div>
 
     </main>
 
-    <audio id="sound-correct" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"></audio>
-    <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
-
     <script>
-        let gameState = {
-            mode: '', score: 0, timer: 0, interval: null,
-            currentAnswer: 0, bubblesInterval: null,
-            memoryFlipped: [], puzzleSolved: 0, limit: 5,
-            initialTime: 120,
-            bubblesSpawnedSinceLastCorrect: 0,
-            bubblesCorrectTargetCount: 5
-        };
+        let currentTable = 1;
+        let correctAnswer = 0;
+        let score = 0;
+        let bubblesSinceLastCorrect = 0;
+        let gameInterval;
 
-        function getLimit() {
-            return parseInt(document.querySelector('input[name="difficulty"]:checked').value);
-        }
-
-        function startGame(mode) {
-            gameState.mode = mode;
-            gameState.score = 0;
-            gameState.limit = getLimit();
-            gameState.timer = gameState.initialTime;
-            updateScore(0);
+        function startGame(table) {
+            currentTable = table;
+            score = 0;
+            document.getElementById('score').innerText = score;
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
             
-            document.getElementById('main-menu').classList.add('hidden');
-            document.getElementById('score-display').classList.remove('hidden');
-
-            if (mode !== 'classic') {
-                startGlobalTimer();
-            }
-
-            if (mode === 'memory') {
-                document.getElementById('memory-arena').classList.remove('hidden');
-                setupMemory();
-            } else if (mode === 'bubbles') {
-                document.getElementById('bubbles-arena').classList.remove('hidden');
-                setupBubbles();
-            } else if (mode === 'puzzle') {
-                document.getElementById('puzzle-arena').classList.remove('hidden');
-                setupPuzzle();
-            } else {
-                document.getElementById('game-arena').classList.remove('hidden');
-                setupQuiz();
-            }
-        }
-
-        function startGlobalTimer() {
-            clearInterval(gameState.interval);
-            gameState.interval = setInterval(() => {
-                gameState.timer--;
-                updateTimerDisplays();
-                if(gameState.timer <= 0) endGame();
-            }, 1000);
-            updateTimerDisplays();
-        }
-
-        function updateTimerDisplays() {
-            const displayStr = gameState.timer + 's';
-            if (document.getElementById('timer-text')) document.getElementById('timer-text').innerText = displayStr;
-            if (document.getElementById('bubble-timer')) document.getElementById('bubble-timer').innerText = displayStr;
-            if (document.getElementById('puzzle-timer')) document.getElementById('puzzle-timer').innerText = displayStr;
-            if (document.getElementById('memory-timer')) document.getElementById('memory-timer').innerText = displayStr;
-            
-            if (document.getElementById('timer-bar')) {
-                document.getElementById('timer-bar').style.width = (gameState.timer / gameState.initialTime * 100) + '%';
-            }
-        }
-
-        function backToMenu() {
-            clearInterval(gameState.interval);
-            clearInterval(gameState.bubblesInterval);
-            document.querySelectorAll('.bubble').forEach(b => b.remove());
-            
-            document.getElementById('main-menu').classList.remove('hidden');
-            ['game-arena', 'memory-arena', 'bubbles-arena', 'puzzle-arena', 'game-over', 'score-display'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
-        }
-
-        function updateScore(p) {
-            gameState.score += p;
-            document.getElementById('current-score').innerText = gameState.score;
-        }
-
-        function getRandomOperation() {
-            const n1 = Math.floor(Math.random() * gameState.limit) + 1;
-            const n2 = Math.floor(Math.random() * 10) + 1;
-            return { n1, n2, res: n1 * n2 };
-        }
-
-        function setupQuiz() {
-            if (gameState.mode === 'classic') {
-                document.getElementById('timer-text').innerText = "Lliure";
-                document.getElementById('timer-bar').style.width = '0%';
-            }
             nextQuestion();
+            // Comença a generar bombolles
+            gameInterval = setInterval(createBubble, 1400);
         }
 
         function nextQuestion() {
-            const op = getRandomOperation();
-            gameState.currentAnswer = op.res;
-            const display = document.getElementById('quiz-display');
-            const grid = document.getElementById('answer-grid');
-            grid.innerHTML = '';
+            const multiplier = Math.floor(Math.random() * 10) + 1;
+            correctAnswer = currentTable * multiplier;
+            document.getElementById('question').innerText = `${currentTable} x ${multiplier}`;
+            bubblesSinceLastCorrect = 0; // Reiniciem el comptador per a la nova pregunta
+        }
 
-            if (gameState.mode === 'truth') {
-                const isCorrect = Math.random() > 0.5;
-                const shownResult = isCorrect ? op.res : op.res + (Math.random() > 0.5 ? (Math.floor(Math.random()*3)+1) : -(Math.floor(Math.random()*3)+1));
-                display.innerText = `${op.n1} × ${op.n2} = ${shownResult}`;
-                
-                [{t:'CERT', v:true, c:'bg-green-500'}, {t:'FALS', v:false, c:'bg-rose-500'}].forEach(opt => {
-                    const b = document.createElement('button');
-                    b.className = `${opt.c} text-white font-bold p-6 rounded-2xl text-xl transition-all active:scale-90 shadow-md`;
-                    b.innerText = opt.t;
-                    b.onclick = () => {
-                        if (opt.v === isCorrect) { updateScore(15); showFeedback(true); nextQuestion(); }
-                        else { updateScore(-5); showFeedback(false); nextQuestion(); }
-                    };
-                    grid.appendChild(b);
-                });
+        function createBubble() {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            
+            bubblesSinceLastCorrect++;
+
+            let value;
+            // LÒGICA DE FREQÜÈNCIA:
+            // Entre 3 i 5 bombolles hi ha probabilitat creixent. 
+            // A la 6a bombolla, forcem que surti la correcta.
+            const forceCorrect = bubblesSinceLastCorrect >= 6;
+            const randomChance = bubblesSinceLastCorrect >= 3 && Math.random() > 0.4;
+
+            if (forceCorrect || randomChance) {
+                value = correctAnswer;
+                bubblesSinceLastCorrect = 0; // Reset per esperar a la següent aparició
             } else {
-                display.innerText = `${op.n1} × ${op.n2}`;
-                const opts = [op.res];
-                while(opts.length < 4) {
-                    const w_op = getRandomOperation();
-                    if(!opts.includes(w_op.res)) opts.push(w_op.res);
-                }
-                opts.sort(() => Math.random()-0.5).forEach(o => {
-                    const b = document.createElement('button');
-                    b.className = "bg-gray-50 p-6 rounded-2xl text-2xl font-bold border-2 hover:border-indigo-500 transition-all active:scale-95 shadow-sm";
-                    b.innerText = o;
-                    b.onclick = () => {
-                        if(o === op.res) { updateScore(10); showFeedback(true); nextQuestion(); }
-                        else { updateScore(-2); showFeedback(false); }
-                    };
-                    grid.appendChild(b);
-                });
+                // Genera una resposta incorrecta creïble (a prop del resultat o aleatòria)
+                const offset = Math.floor(Math.random() * 10) + 1;
+                value = Math.random() > 0.5 ? correctAnswer + offset : Math.max(0, correctAnswer - offset);
+                if (value === correctAnswer) value += 2;
             }
-        }
+            
+            bubble.innerText = value;
+            
+            // Grandària i posició aleatòria
+            const size = Math.floor(Math.random() * 20) + 80; 
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+            bubble.style.left = `${Math.random() * 75 + 10}vw`; // Marge del 10% als costats
+            
+            // Velocitat de pujada
+            bubble.style.animationDuration = `${Math.random() * 2 + 5}s`;
 
-        function setupBubbles() {
-            gameState.bubblesSpawnedSinceLastCorrect = 0;
-            gameState.bubblesCorrectTargetCount = Math.floor(Math.random() * 6) + 3;
-
-            function spawnBubble() {
-                gameState.bubblesSpawnedSinceLastCorrect++;
-                let val;
-                
-                if (gameState.bubblesSpawnedSinceLastCorrect >= gameState.bubblesCorrectTargetCount) {
-                    val = gameState.currentAnswer;
-                    gameState.bubblesSpawnedSinceLastCorrect = 0;
-                    gameState.bubblesCorrectTargetCount = Math.floor(Math.random() * 6) + 3;
+            bubble.onclick = () => {
+                if (parseInt(bubble.innerText) === correctAnswer) {
+                    // ENCERT
+                    score += 10;
+                    document.getElementById('score').innerText = score;
+                    bubble.style.background = "#4ade80"; 
+                    bubble.style.borderColor = "#22c55e";
+                    bubble.classList.add('bubble-pop');
+                    
+                    // Netejar bombolles actuals i següent pregunta
+                    setTimeout(() => {
+                        const allBubbles = document.querySelectorAll('.bubble');
+                        allBubbles.forEach(b => b.remove());
+                        nextQuestion();
+                    }, 400);
                 } else {
-                    let op;
-                    do { op = getRandomOperation(); } while (op.res === gameState.currentAnswer);
-                    val = op.res;
+                    // ERROR
+                    bubble.style.background = "#f87171";
+                    bubble.style.borderColor = "#dc2626";
+                    bubble.style.color = "white";
+                    setTimeout(() => bubble.remove(), 300);
                 }
+            };
 
-                const b = document.createElement('div');
-                const size = Math.random() * 40 + 80;
-                b.className = "bubble flex items-center justify-center rounded-full shadow-lg border-4 border-white text-white font-bold text-2xl";
-                b.style.width = size + 'px';
-                b.style.height = size + 'px';
-                b.style.left = Math.random() * 80 + 5 + '%';
-                b.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
-                b.style.animationDuration = (Math.random() * 3 + 5) + 's';
-                b.innerText = val;
-                
-                b.onclick = () => {
-                    if (val === gameState.currentAnswer) {
-                        updateScore(20);
-                        b.style.transform = "scale(1.5)";
-                        b.style.opacity = "0";
-                        playSound('correct');
-                        setTimeout(() => b.remove(), 200);
-                        newBubbleTarget();
-                    } else {
-                        updateScore(-5);
-                        playSound('error');
-                    }
-                };
-                b.onanimationend = () => b.remove();
-                document.getElementById('bubbles-container').appendChild(b);
-            }
-            gameState.bubblesInterval = setInterval(spawnBubble, 1400);
-            newBubbleTarget();
-        }
+            document.body.appendChild(bubble);
 
-        function newBubbleTarget() {
-            const op = getRandomOperation();
-            gameState.currentAnswer = op.res;
-            document.getElementById('bubble-target').innerText = `${op.n1} × ${op.n2}`;
-            gameState.bubblesSpawnedSinceLastCorrect = 0;
-        }
-
-        function setupPuzzle() {
-            const slots = document.getElementById('puzzle-slots');
-            const pieces = document.getElementById('puzzle-pieces');
-            slots.innerHTML = '';
-            pieces.innerHTML = '';
-            gameState.puzzleSolved = 0;
-
-            const puzzleItems = [];
-            const usedAnswers = new Set();
-            while(puzzleItems.length < 4) {
-                const op = getRandomOperation();
-                if(!usedAnswers.has(op.res)) {
-                    usedAnswers.add(op.res);
-                    puzzleItems.push({ q: `${op.n1} × ${op.n2}`, a: op.res });
-                }
-            }
-
-            puzzleItems.forEach(item => {
-                const slot = document.createElement('div');
-                slot.className = "bg-gray-50 border-4 border-dashed border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center drop-zone";
-                slot.innerHTML = `<span class="text-xl font-bold text-gray-400 mb-2">${item.q} = ?</span>
-                                  <div class="target-area w-full h-12 flex items-center justify-center" data-answer="${item.a}"></div>`;
-                
-                slot.ondragover = (e) => { e.preventDefault(); slot.classList.add('hover'); };
-                slot.ondragleave = () => slot.classList.remove('hover');
-                slot.ondrop = (e) => {
-                    e.preventDefault();
-                    slot.classList.remove('hover');
-                    const val = e.dataTransfer.getData("text");
-                    const target = slot.querySelector('.target-area');
-                    if (val == item.a && target.innerHTML === '') {
-                        const piece = document.getElementById(`piece-${val}`);
-                        target.appendChild(piece);
-                        piece.setAttribute('draggable', false);
-                        piece.classList.add('bg-green-500', 'text-white');
-                        piece.classList.remove('bg-white', 'text-orange-600');
-                        updateScore(40);
-                        playSound('correct');
-                        gameState.puzzleSolved++;
-                        if(gameState.puzzleSolved === 4) setTimeout(setupPuzzle, 1000);
-                    } else if (val != item.a) {
-                        playSound('error');
-                        updateScore(-5);
-                    }
-                };
-                slots.appendChild(slot);
-            });
-
-            [...puzzleItems].sort(() => Math.random() - 0.5).forEach(item => {
-                const p = document.createElement('div');
-                p.id = `piece-${item.a}`;
-                p.className = "bg-white border-2 border-orange-400 text-orange-600 font-bold text-2xl w-16 h-16 rounded-xl flex items-center justify-center cursor-grab shadow-sm active:cursor-grabbing";
-                p.innerText = item.a;
-                p.setAttribute('draggable', true);
-                p.ondragstart = (e) => e.dataTransfer.setData("text", item.a);
-                pieces.appendChild(p);
-            });
-        }
-
-        function setupMemory() {
-            const grid = document.getElementById('memory-grid');
-            grid.innerHTML = '';
-            let items = [];
-            const usedIds = new Set();
-            while(usedIds.size < 6) {
-                const op = getRandomOperation();
-                const id = `${op.n1}x${op.n2}`;
-                if(!usedIds.has(id)) {
-                    usedIds.add(id);
-                    items.push({id, t:'q', c:`${op.n1}×${op.n2}`}, {id, t:'a', c:op.res});
-                }
-            }
-            items.sort(() => Math.random()-0.5).forEach(item => {
-                const card = document.createElement('div');
-                card.className = "card-flip h-24 sm:h-32 cursor-pointer";
-                card.innerHTML = `
-                    <div class="card-inner w-full h-full shadow-md rounded-xl" data-id="${item.id}">
-                        <div class="card-front bg-indigo-500 rounded-xl flex items-center justify-center text-white text-3xl font-bold shadow-inner">?</div>
-                        <div class="card-back bg-white border-2 border-indigo-200 rounded-xl flex items-center justify-center font-bold text-gray-700 text-lg sm:text-2xl">${item.c}</div>
-                    </div>`;
-                card.onclick = () => flipMemory(card.querySelector('.card-inner'));
-                grid.appendChild(card);
-            });
-        }
-
-        function flipMemory(c) {
-            if(gameState.memoryFlipped.length === 2 || c.classList.contains('card-flipped') || c.classList.contains('matched')) return;
-            c.classList.add('card-flipped');
-            gameState.memoryFlipped.push(c);
-            if(gameState.memoryFlipped.length === 2) {
-                const [c1, c2] = gameState.memoryFlipped;
-                if(c1.dataset.id === c2.dataset.id) {
-                    c1.classList.add('matched'); c2.classList.add('matched');
-                    updateScore(50);
-                    gameState.memoryFlipped = [];
-                    playSound('correct');
-                    if(document.querySelectorAll('.matched').length === 12) setupMemory(); 
-                } else {
-                    playSound('error');
-                    setTimeout(() => { c1.classList.remove('card-flipped'); c2.classList.remove('card-flipped'); gameState.memoryFlipped = []; }, 1000);
-                }
-            }
-        }
-
-        function showFeedback(correct) {
-            const f = document.getElementById('feedback');
-            f.innerText = correct ? "Molt bé! 🌟" : "Torna-ho a provar! ❌";
-            f.className = `h-8 mt-4 font-bold text-lg opacity-100 ${correct ? 'text-green-500' : 'text-red-500'}`;
-            playSound(correct ? 'correct' : 'error');
-            setTimeout(() => f.className = "h-8 mt-4 font-bold text-lg opacity-0", 600);
-        }
-
-        function playSound(t) { const a = document.getElementById(`sound-${t}`); a.currentTime = 0; a.play().catch(()=>{}); }
-        function endGame() { 
-            clearInterval(gameState.interval); 
-            clearInterval(gameState.bubblesInterval);
-            document.getElementById('game-over').classList.remove('hidden'); 
-            document.getElementById('final-score').innerText = gameState.score; 
+            // Neteja si la bombolla surt per dalt sense ser clicada
+            setTimeout(() => {
+                if(bubble.parentNode) bubble.remove();
+            }, 7000);
         }
     </script>
 </body>
